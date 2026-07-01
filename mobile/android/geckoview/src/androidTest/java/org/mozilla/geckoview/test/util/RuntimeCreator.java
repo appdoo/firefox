@@ -196,6 +196,10 @@ public class RuntimeCreator {
             .arguments(new String[] {"-purgecaches"})
             .extras(InstrumentationRegistry.getArguments())
             .remoteDebuggingEnabled(true)
+            // Bug 1549943 experiment: request the 32-bit (RGBA) EGL config so the
+            // WR window surface carries an alpha plane; without this the surface is
+            // RGB24 (no alpha) and capturePixels readback force-opaques alpha.
+            .useMaxScreenDepth(true)
             .consoleOutput(true)
             .crashHandler(TestCrashHandler.class)
             .experimentDelegate(sRuntimeExperimentDelegateProxy)
