@@ -538,6 +538,16 @@ function createBrowser() {
   browser.setAttribute("messagemanagergroup", "browsers");
   browser.setAttribute("manualactiveness", "true");
 
+  // Bug 1549943: let the embedder opt in to a transparent content background.
+  // This reuses the same `transparent` <browser> attribute desktop uses (read
+  // by BrowserParent::GetShowInfo -> BrowserChild::mIsTransparent ->
+  // PresShell::IsTransparentContainerElement), so the root content document's
+  // canvas is not composited over opaque white.
+  const view = window.arguments[0].QueryInterface(Ci.nsIGeckoViewView);
+  if (view.initData.settings.transparent) {
+    browser.setAttribute("transparent", "true");
+  }
+
   // This is only needed for mochitests, so that they honor the
   // prefers-color-scheme.content-override pref. GeckoView doesn't set this
   // pref to anything other than the default value otherwise.
