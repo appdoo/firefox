@@ -79,6 +79,18 @@ public final class GeckoSessionSettings implements Parcelable {
     }
 
     /**
+     * Set whether the content should be rendered with a transparent background, so it can be
+     * composited over other content (bug 1549943).
+     *
+     * @param flag Whether the content background should be transparent. Default is false.
+     * @return This Builder instance.
+     */
+    public @NonNull Builder transparent(final boolean flag) {
+      mSettings.setTransparent(flag);
+      return this;
+    }
+
+    /**
      * Set the session context ID for this instance. Setting a context ID partitions the cookie jars
      * based on the provided IDs. This isolates the browser storage like cookies and localStorage
      * between sessions, only sessions that share the same ID share storage data.
@@ -288,6 +300,10 @@ public final class GeckoSessionSettings implements Parcelable {
   private static final Key<Boolean> USE_PRIVATE_MODE =
       new Key<Boolean>("usePrivateMode", /* initOnly */ true, /* values */ null);
 
+  /** Key to request a transparent content background (bug 1549943). Read-only once session open. */
+  private static final Key<Boolean> TRANSPARENT =
+      new Key<Boolean>("transparent", /* initOnly */ true, /* values */ null);
+
   /** Key to specify which user agent mode we should use. */
   private static final Key<Integer> USER_AGENT_MODE =
       new Key<Integer>(
@@ -372,6 +388,7 @@ public final class GeckoSessionSettings implements Parcelable {
     mBundle.putInt(SCREEN_ID.name, 0);
     mBundle.putBoolean(USE_TRACKING_PROTECTION.name, false);
     mBundle.putBoolean(USE_PRIVATE_MODE.name, false);
+    mBundle.putBoolean(TRANSPARENT.name, false);
     mBundle.putBoolean(SUSPEND_MEDIA_WHEN_INACTIVE.name, false);
     mBundle.putBoolean(ALLOW_JAVASCRIPT.name, true);
     mBundle.putBoolean(FULL_ACCESSIBILITY_TREE.name, false);
@@ -401,6 +418,15 @@ public final class GeckoSessionSettings implements Parcelable {
    */
   private void setUsePrivateMode(final boolean value) {
     setBoolean(USE_PRIVATE_MODE, value);
+  }
+
+  /**
+   * Set whether the content background should be transparent.
+   *
+   * @param value Whether the content background should be transparent. Default is false.
+   */
+  private void setTransparent(final boolean value) {
+    setBoolean(TRANSPARENT, value);
   }
 
   /**
@@ -459,6 +485,15 @@ public final class GeckoSessionSettings implements Parcelable {
    */
   public boolean getUsePrivateMode() {
     return getBoolean(USE_PRIVATE_MODE);
+  }
+
+  /**
+   * Whether transparent content background is enabled.
+   *
+   * @return true if transparent background is enabled, false if not.
+   */
+  public boolean getTransparent() {
+    return getBoolean(TRANSPARENT);
   }
 
   /**
