@@ -19,7 +19,9 @@
 #include "mozilla/layers/RemoteTextureHostWrapper.h"
 #include "mozilla/layers/TextureClientSharedSurface.h"
 #include "mozilla/layers/WebRenderTextureHost.h"
+#include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/StaticPrefs_gfx.h"
+#include "nsDebug.h"
 #include "mozilla/StaticPrefs_webgl.h"
 #include "mozilla/webgpu/ExternalTexture.h"
 #include "mozilla/webrender/RenderThread.h"
@@ -411,6 +413,33 @@ void RemoteTextureMap::PushTexture(
           std::back_inserter(releasingTextures),
           [](CompositableTextureHostRef& aRef) { return aRef.get(); });
       owner->mReleasingRenderedTextureHosts.clear();
+    }
+
+    // GPULEAK probe 3: queue depths per owner. The reap loop below breaks on
+    // the first entry whose compositable refcount isn't 0, so one pinned
+    // front entry blocks reaping of everything behind it.
+    {
+      static uint32_t sGpuLeakCalls = 0;
+      static size_t sGpuLeakHighWater = 0;
+      ++sGpuLeakCalls;
+      const size_t usingSize = owner->mUsingTextureDataHolders.size();
+      int frontRefs = -1;
+      if (!owner->mUsingTextureDataHolders.empty() &&
+          owner->mUsingTextureDataHolders.front()->mTextureHost) {
+        frontRefs = owner->mUsingTextureDataHolders.front()
+                        ->mTextureHost->NumCompositableRefs();
+      }
+      if ((sGpuLeakCalls & 0x7F) == 1 ||
+          usingSize >= sGpuLeakHighWater + 32) {
+        if (usingSize > sGpuLeakHighWater) {
+          sGpuLeakHighWater = usingSize;
+        }
+        printf_stderr("GPULEAK3 owner=%" PRIu64 " calls=%u waiting=%zu"
+                      " using=%zu releasing=%zu frontRefs=%d\n",
+                      aOwnerId.mId, sGpuLeakCalls,
+                      owner->mWaitingTextureDataHolders.size(), usingSize,
+                      owner->mReleasingTextureDataHolders.size(), frontRefs);
+      }
     }
 
     // Drop obsoleted remote textures.

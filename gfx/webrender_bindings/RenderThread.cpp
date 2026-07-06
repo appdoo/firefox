@@ -28,6 +28,7 @@
 #include "mozilla/layers/SynchronousTask.h"
 #include "mozilla/PerfStats.h"
 #include "mozilla/StaticPtr.h"
+#include "nsDebug.h"
 #include "mozilla/webrender/RendererOGL.h"
 #include "mozilla/webrender/RenderTextureHost.h"
 #include "mozilla/widget/CompositorWidget.h"
@@ -892,6 +893,28 @@ void RenderThread::UpdateAndRender(
 
   RenderedFrameId lastCompletedFrameId = renderer->GetLastCompletedFrameId();
 
+  // GPULEAK probe 1: frame ids advance on no-render cycles (UpdateFrameId
+  // above) while the completed watermark only advances after WaitForGPU —
+  // a persistent gap starves AsyncImagePipelineManager texture reclamation.
+  {
+    static uint32_t sGpuLeakCalls = 0;
+    static uint32_t sGpuLeakNoRender = 0;
+    ++sGpuLeakCalls;
+    if (!render) {
+      ++sGpuLeakNoRender;
+    }
+    if ((sGpuLeakCalls & 0x7F) == 1 ||
+        ((sGpuLeakCalls & 0x3F) == 1 &&
+         latestFrameId.mId - lastCompletedFrameId.mId > 8)) {
+      printf_stderr("GPULEAK1 win=%" PRIx64 " calls=%u noRender=%u render=%d"
+                    " latest=%" PRIu64 " completed=%" PRIu64 " lag=%" PRIu64
+                    "\n",
+                    AsUint64(aWindowId), sGpuLeakCalls, sGpuLeakNoRender,
+                    render, latestFrameId.mId, lastCompletedFrameId.mId,
+                    latestFrameId.mId - lastCompletedFrameId.mId);
+    }
+  }
+
   RefPtr<layers::AsyncImagePipelineManager> pipelineMgr =
       renderer->GetCompositorBridge()->GetAsyncImagePipelineManager();
   // pipelineMgr should always be non-null here because it is only nulled out
@@ -1043,6 +1066,23 @@ void RenderThread::RegisterExternalImage(
   }
   auto [it, inserted] = mRenderTextures.emplace(aExternalImageId, texture);
   MOZ_RELEASE_ASSERT(inserted, "ExternalImageId collision");
+
+  // GPULEAK probe 5: release-mode registry-size counter (the DEBUG-only
+  // assert below tracks the same signal but never ships).
+  {
+    static uint32_t sGpuLeakRegisters = 0;
+    static size_t sGpuLeakHighWater = 0;
+    ++sGpuLeakRegisters;
+    const size_t size = mRenderTextures.size();
+    if ((sGpuLeakRegisters & 0xFF) == 1 ||
+        size >= sGpuLeakHighWater + 64) {
+      if (size > sGpuLeakHighWater) {
+        sGpuLeakHighWater = size;
+      }
+      printf_stderr("GPULEAK5 registers=%u renderTextures=%zu\n",
+                    sGpuLeakRegisters, size);
+    }
+  }
 
 #ifdef DEBUG
   int32_t maxAllowedIncrease =

@@ -19,8 +19,10 @@
 #include "mozilla/layers/SharedSurfacesParent.h"
 #include "mozilla/layers/WebRenderImageHost.h"
 #include "mozilla/layers/WebRenderTextureHost.h"
+#include "mozilla/IntegerPrintfMacros.h"
 #include "mozilla/webrender/RenderTextureHost.h"
 #include "mozilla/webrender/RenderThread.h"
+#include "nsDebug.h"
 #include "mozilla/webrender/WebRenderAPI.h"
 #include "mozilla/webrender/WebRenderTypes.h"
 
@@ -817,6 +819,16 @@ void AsyncImagePipelineManager::ProcessPipelineRemoved(
       // Remove Pipeline releasing all remaining TextureHosts and external
       // images.
       entry.Remove();
+    } else {
+      // GPULEAK probe 6: WR's removed_pipelines notification is one-shot; if
+      // bookkeeping isn't marked destroyed yet the cleanup above is skipped
+      // and never retried (bug 1971159 candidate).
+      printf_stderr("GPULEAK6 pipeline=%" PRIx64
+                    " removal dropped (no destroyed epoch),"
+                    " heldUntilCompleted=%zu heldUntilSubmitted=%zu\n",
+                    wr::AsUint64(aRemovedPipeline.pipeline_id),
+                    holder->mTextureHostsUntilRenderCompleted.size(),
+                    holder->mTextureHostsUntilRenderSubmitted.size());
     }
 
     // If mDestroyedEpoch contains nothing it means we reused the same pipeline
@@ -835,6 +847,31 @@ void AsyncImagePipelineManager::CheckForTextureHostsNotUsedByGPU() {
                      return lastCompletedFrameId < entry.first.mId;
                    });
   mTexturesInUseByGPU.erase(mTexturesInUseByGPU.begin(), firstTexturesToKeep);
+
+  // GPULEAK probe 2: buckets survive the erase above only while their frame
+  // id is past the completed watermark; monotonic growth here means the
+  // watermark is starving (see GPULEAK1) and textures are pinned until the
+  // manager dies with the window.
+  {
+    static uint32_t sGpuLeakCalls = 0;
+    static size_t sGpuLeakHighWater = 0;
+    ++sGpuLeakCalls;
+    size_t texTotal = 0;
+    for (const auto& entry : mTexturesInUseByGPU) {
+      texTotal += entry.second.size();
+    }
+    const uint64_t newest =
+        mTexturesInUseByGPU.empty() ? 0 : mTexturesInUseByGPU.back().first.mId;
+    if ((sGpuLeakCalls & 0xFF) == 1 || texTotal >= sGpuLeakHighWater + 64) {
+      if (texTotal > sGpuLeakHighWater) {
+        sGpuLeakHighWater = texTotal;
+      }
+      printf_stderr("GPULEAK2 calls=%u buckets=%zu tex=%zu completed=%" PRIu64
+                    " newest=%" PRIu64 "\n",
+                    sGpuLeakCalls, mTexturesInUseByGPU.size(), texTotal,
+                    lastCompletedFrameId, newest);
+    }
+  }
 }
 
 wr::Epoch AsyncImagePipelineManager::GetNextImageEpoch() {

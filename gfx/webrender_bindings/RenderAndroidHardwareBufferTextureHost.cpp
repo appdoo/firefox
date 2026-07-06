@@ -14,9 +14,16 @@
 #include "GLLibraryEGL.h"
 #include "GLReadTexImageHelper.h"
 #include "OGLShaderConfig.h"
+#include "mozilla/Atomics.h"
+#include "nsDebug.h"
 
 namespace mozilla {
 namespace wr {
+
+// GPULEAK probe 4: live instances pin an AHardwareBuffer (and, once locked,
+// an EGLImage + GL texture) — the closest in-Gecko proxy for driver-side
+// memory held by stuck canvas frames.
+static Atomic<int32_t> sGpuLeakLiveAhbHosts(0);
 
 RenderAndroidHardwareBufferTextureHost::RenderAndroidHardwareBufferTextureHost(
     layers::AndroidHardwareBuffer* aAndroidHardwareBuffer)
@@ -26,6 +33,10 @@ RenderAndroidHardwareBufferTextureHost::RenderAndroidHardwareBufferTextureHost(
   MOZ_ASSERT(mAndroidHardwareBuffer);
   MOZ_COUNT_CTOR_INHERITED(RenderAndroidHardwareBufferTextureHost,
                            RenderTextureHost);
+  const int32_t live = ++sGpuLeakLiveAhbHosts;
+  if ((live & 0x3F) == 0) {
+    printf_stderr("GPULEAK4 liveAhbHosts=%d (ctor)\n", live);
+  }
 }
 
 RenderAndroidHardwareBufferTextureHost::
@@ -34,6 +45,10 @@ RenderAndroidHardwareBufferTextureHost::
                            RenderTextureHost);
   DeleteTextureHandle();
   DestroyEGLImage();
+  const int32_t live = --sGpuLeakLiveAhbHosts;
+  if ((live & 0x3F) == 0) {
+    printf_stderr("GPULEAK4 liveAhbHosts=%d (dtor)\n", live);
+  }
 }
 
 gfx::IntSize RenderAndroidHardwareBufferTextureHost::GetSize() const {
