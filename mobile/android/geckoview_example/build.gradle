@@ -13,7 +13,9 @@ android {
         minSdkVersion = project.ext.minSdkVersion
         manifestPlaceholders = project.ext.manifestPlaceholders
 
-        applicationId "org.mozilla.geckoview_example"
+        // GPULEAK soak: reuse a package name the Connect3 device owner already
+        // whitelists for lock task, so the repro app can launch on the kiosk.
+        applicationId "com.icg.connect.dualdisplaydemo"
         versionCode project.ext.versionCode
         versionName project.ext.versionName
     }
