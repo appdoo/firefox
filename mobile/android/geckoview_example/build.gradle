@@ -13,7 +13,12 @@ android {
         minSdkVersion = project.ext.minSdkVersion
         manifestPlaceholders = project.ext.manifestPlaceholders
 
-        applicationId "org.mozilla.geckoview_example"
+        // GPULEAK soak: reuse a package name the Connect3 device owner already
+        // whitelists for lock task, so the repro app can launch on the kiosk.
+        // Overridable so a diagnostic build (e.g. DMD) can install alongside a
+        // live soak app instead of replacing it and losing its leak state;
+        // icg.virtualcycling.management is the other free whitelisted id.
+        applicationId System.getenv("GVE_APPLICATION_ID") ?: "com.icg.connect.dualdisplaydemo"
         versionCode project.ext.versionCode
         versionName project.ext.versionName
     }

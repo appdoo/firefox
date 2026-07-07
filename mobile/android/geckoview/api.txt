@@ -1942,6 +1942,7 @@ package org.mozilla.geckoview {
     method public boolean getFullAccessibilityTree();
     method public int getScreenId();
     method public boolean getSuspendMediaWhenInactive();
+    method public boolean getTransparent();
     method public boolean getUsePrivateMode();
     method public boolean getUseTrackingProtection();
     method public int getUserAgentMode();
@@ -1979,6 +1980,7 @@ package org.mozilla.geckoview {
     method @NonNull public GeckoSessionSettings.Builder fullAccessibilityTree(boolean);
     method @NonNull public GeckoSessionSettings.Builder screenId(int);
     method @NonNull public GeckoSessionSettings.Builder suspendMediaWhenInactive(boolean);
+    method @NonNull public GeckoSessionSettings.Builder transparent(boolean);
     method @NonNull public GeckoSessionSettings.Builder usePrivateMode(boolean);
     method @NonNull public GeckoSessionSettings.Builder useTrackingProtection(boolean);
     method @NonNull public GeckoSessionSettings.Builder userAgentMode(int);
