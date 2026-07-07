@@ -47,6 +47,7 @@ EXPORTS.mozilla += [
     "AbstractThread.h",
     "BlockingResourceBase.h",
     "CondVar.h",
+    "CpuAffinity.h",
     "CPUUsageWatcher.h",
     "DataMutex.h",
     "DeadlockDetector.h",
@@ -84,6 +85,7 @@ EXPORTS.mozilla += [
 ]
 
 SOURCES += [
+    "CpuAffinity.cpp",
     "IdlePeriodState.cpp",
     "IdleTaskRunner.cpp",
     "ThreadDelay.cpp",

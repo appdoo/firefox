@@ -24,6 +24,7 @@
 #include "gfxPlatform.h"
 #include "mozilla/Assertions.h"
 #include "mozilla/Components.h"
+#include "mozilla/CpuAffinity.h"
 #include "mozilla/FOGIPC.h"
 #include "mozilla/HangDetails.h"
 #include "mozilla/PerfStats.h"
@@ -33,6 +34,7 @@
 #include "mozilla/RemoteDecoderManagerParent.h"
 #include "mozilla/ScopeExit.h"
 #include "mozilla/StaticPrefs_dom.h"
+#include "mozilla/StaticPrefs_gfx.h"
 #include "mozilla/StaticPrefs_media.h"
 #include "mozilla/TimeStamp.h"
 #include "mozilla/dom/MemoryReportRequest.h"
@@ -407,6 +409,20 @@ mozilla::ipc::IPCResult GPUParent::RecvInit(
   }
 
 #endif
+
+  // Fork-only (bug 1549943 / Connect3): pin this GPU process's threads to the
+  // configured CPU core set BEFORE spawning the render/compositor threads, so
+  // those threads inherit the affinity mask via pthread_create. Empty pref =
+  // no-op. We run on the GPU main thread here (RenderThread::Start asserts
+  // NS_IsMainThread), which is exactly the creator of the threads below.
+  {
+    // Bind the DataMutex guard to a named lvalue before dereferencing; the
+    // accessor returns a temporary lock and operator* on an rvalue guard is
+    // deleted (deref-ing a temporary lock would dangle).
+    auto affinityLock = StaticPrefs::gfx_gpu_process_cpu_affinity();
+    nsAutoCString cpuAffinity(*affinityLock);
+    ApplyCpuAffinityToSelf(cpuAffinity);
+  }
 
   // Make sure to do this *after* we update gfxVars above.
   wr::RenderThread::Start(aWrNamespace);
