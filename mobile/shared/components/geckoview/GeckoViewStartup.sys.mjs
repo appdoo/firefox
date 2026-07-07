@@ -291,6 +291,16 @@ export class GeckoViewStartup {
         Services.obs.addObserver(this, "browser-idle-startup-tasks-finished");
         Services.obs.addObserver(this, "handlersvc-store-initialized");
 
+        // Bug 1971159: embedders that never initialize the Glean Kotlin SDK
+        // leave glean-core uninitialized, so every FOG metric op replayed
+        // from child processes (fog_use_ipc_buf) is retained forever in the
+        // pre-init dispatcher queue of the parent process (~0.6 MB/min).
+        // Initialize FOG from Gecko like desktop does (StartupTelemetry);
+        // no uploader is configured on Android, so nothing is submitted.
+        if (Services.prefs.getBoolPref("telemetry.fog.init_on_startup", true)) {
+          Services.fog.initializeFOG();
+        }
+
         Services.obs.notifyObservers(null, "geckoview-startup-complete");
         break;
       }
