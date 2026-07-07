@@ -468,6 +468,13 @@ class Thread {
   // indirectly call vanilla malloc via functions like MozStackWalk.)
   bool mBlockIntercepts;
 
+#ifdef ANDROID
+  // Cached pthread stack end for FramePointerStackWalk, lazily initialized.
+  // pthread_getattr_np on bionic reads /proc/self/maps for the main thread,
+  // far too expensive to do per-allocation.
+  void* mStackEnd = nullptr;
+#endif
+
   Thread() : mBlockIntercepts(false) {}
 
   Thread(const Thread&) = delete;
@@ -494,6 +501,23 @@ class Thread {
 
     return t;
   }
+
+#ifdef ANDROID
+  void* StackEnd() {
+    if (MOZ_UNLIKELY(!mStackEnd)) {
+      pthread_attr_t attr;
+      if (pthread_getattr_np(pthread_self(), &attr) == 0) {
+        void* base = nullptr;
+        size_t size = 0;
+        if (pthread_attr_getstack(&attr, &base, &size) == 0 && base && size) {
+          mStackEnd = static_cast<char*>(base) + size;
+        }
+        pthread_attr_destroy(&attr);
+      }
+    }
+    return mStackEnd;
+  }
+#endif
 
   bool BlockIntercepts() {
     MOZ_ASSERT(!mBlockIntercepts);
@@ -658,6 +682,24 @@ static uint32_t gGCStackTraceTableWhenSizeExceeds = 4 * 1024;
 #  pragma GCC diagnostic pop
     void* stackEnd = pthread_get_stackaddr_np(pthread_self());
     FramePointerStackWalk(StackWalkCallback, MaxFrames, &tmp, fp, stackEnd);
+#elif defined(ANDROID)
+    // This avoids MozStackWalk(), which uses _Unwind_Backtrace: libunwind's
+    // CFI parsing can consume hundreds of KB of stack, and DMD's malloc
+    // intercept runs on threads with arbitrarily little stack left. Observed
+    // on aarch64 as a guard-page SIGSEGV in parseFDEInstructions (fault
+    // address == sp) in every process within seconds of allocation traffic.
+    // DMD requires MOZ_PROFILING, so frame pointers are available; walk them
+    // like the Win32 and Mac cases above.
+    void* stackEnd = aT->StackEnd();
+    if (stackEnd) {
+#  pragma GCC diagnostic push
+#  pragma GCC diagnostic ignored "-Wframe-address"
+      void** fp = reinterpret_cast<void**>(__builtin_frame_address(1));
+#  pragma GCC diagnostic pop
+      FramePointerStackWalk(StackWalkCallback, MaxFrames, &tmp, fp, stackEnd);
+    } else {
+      MozStackWalk(StackWalkCallback, nullptr, MaxFrames, &tmp);
+    }
 #else
     MozStackWalk(StackWalkCallback, nullptr, MaxFrames, &tmp);
 #endif
