@@ -7126,6 +7126,18 @@
   value: 10000
   mirror: always
 
+# Fork-only (bug 1549943 / Connect3): pin the GPU process's own threads to a
+# CPU core set, self-applied inside the :gpu child at RecvInit (before the
+# render/compositor threads spawn, so they inherit the mask). Value is a core
+# list/range string, e.g. "4-7" or "4,5,6,7". Empty (default) = disabled, no
+# behavior change. Lets a non-debuggable Android system app keep WebGL render
+# on the big cluster where parent-side sched_setaffinity is blocked by
+# hidepid/SELinux. See mozilla/CpuAffinity.h.
+- name: gfx.gpu-process.cpu-affinity
+  type: DataMutexString
+  value: ""
+  mirror: always
+
 # The level of logging:
 # - 0: no logging;
 # - 1: adds errors;
