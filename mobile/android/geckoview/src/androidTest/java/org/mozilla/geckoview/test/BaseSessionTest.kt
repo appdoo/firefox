@@ -79,6 +79,7 @@ open class BaseSessionTest(
         const val TEST_GIF_PATH = "/assets/www/images/test.gif"
         const val TEXT_CONTROL_PATH = "/assets/www/textcontrol.html"
         const val TITLE_CHANGE_HTML_PATH = "/assets/www/titleChange.html"
+        const val TRANSPARENT_PAGE_HTML_PATH = "/assets/www/transparent_page.html"
         const val TRACKERS_PATH = "/assets/www/trackers.html"
         const val VIDEO_MP4_PATH = "/assets/www/mp4.html"
         const val VIDEO_WEBM_PATH = "/assets/www/webm.html"

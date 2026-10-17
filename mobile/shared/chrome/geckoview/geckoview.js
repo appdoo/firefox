@@ -459,6 +459,14 @@ function createBrowser(settings) {
   browser.setAttribute("messagemanagergroup", "browsers");
   browser.setAttribute("manualactiveness", "true");
 
+  // Let the embedder opt in to a transparent content background. This uses the
+  // same `transparent` <browser> attribute as desktop (BrowserParent ->
+  // BrowserChild::mIsTransparent -> PresShell::IsTransparentContainerElement),
+  // so the root document's canvas is not painted opaque white.
+  if (settings.transparent) {
+    browser.setAttribute("transparent", "true");
+  }
+
   // This is only needed for mochitests, so that they honor the
   // prefers-color-scheme.content-override pref. GeckoView doesn't set this
   // pref to anything other than the default value otherwise.

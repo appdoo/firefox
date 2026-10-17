@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<!-- Any copyright is dedicated to the Public Domain.
+     http://creativecommons.org/publicdomain/zero/1.0/ -->
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Transparent page</title>
+    <style>
+      /* Transparent root: no opaque background anywhere on html/body. With a
+         transparent compositor clear color and a non-opaque root document,
+         the composited output must carry per-pixel alpha here. */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: transparent;
+      }
+      /* A fully opaque red square centered in an 800x800 display (covers the
+         center pixel). Content opacity must survive: center stays opaque red.
+         The transparent gif makes the box contentful, so the test can wait for
+         the first contentful paint (a plain color is not contentful per spec;
+         see colors.html). */
+      #box {
+        position: absolute;
+        left: 350px;
+        top: 350px;
+        width: 100px;
+        height: 100px;
+        background: url("/assets/www/transparent.gif"), #ff0000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="box"></div>
+  </body>
+</html>

@@ -246,6 +246,7 @@ public class GeckoSessionTestRule implements TestRule {
       ALLOW_JAVASCRIPT,
       SCREEN_ID,
       USE_PRIVATE_MODE,
+      TRANSPARENT,
       USE_TRACKING_PROTECTION,
       FULL_ACCESSIBILITY_TREE;
 
